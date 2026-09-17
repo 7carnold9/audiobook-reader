@@ -25,9 +25,10 @@ export async function extractPdf(
   const doc = await pdfjs.getDocument({
     data,
     isEvalSupported: false,
-    // Served by the `pdfjsAssets` plugin in vite.config.ts.
-    standardFontDataUrl: '/standard_fonts/',
-    cMapUrl: '/cmaps/',
+    // Served by the `pdfjsAssets` plugin in vite.config.ts. Resolved against
+    // the page so the app also works when hosted under a subdirectory.
+    standardFontDataUrl: assetUrl('standard_fonts/'),
+    cMapUrl: assetUrl('cmaps/'),
     cMapPacked: true,
   }).promise
   try {
@@ -63,6 +64,10 @@ export async function extractPdf(
   } finally {
     await doc.destroy()
   }
+}
+
+function assetUrl(path: string): string {
+  return new URL(path, document.baseURI).href
 }
 
 function isTextItem(item: unknown): item is TextItem {

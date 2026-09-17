@@ -39,6 +39,9 @@ function pdfjsAssets(): Plugin {
 }
 
 export default defineConfig({
+  // Relative asset URLs, so a build can be served from a subdirectory (a
+  // project page, a preview link) as happily as from a domain root.
+  base: './',
   plugins: [react(), pdfjsAssets()],
   // pdf.js is shipped as pre-bundled ESM with a separate worker; pre-bundling it
   // in dev rewrites the worker import and breaks text extraction.
