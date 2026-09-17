@@ -17,10 +17,28 @@ player. It runs on any machine, is quick to iterate on, and the extraction work
 
 ## Quick start
 
+Needs Node 20.19 or newer.
+
 ```bash
 npm install
 npm run dev        # http://localhost:5173
 ```
+
+Drop a PDF on the page and press play. Everything is kept in the browser, so the
+library is per-browser-profile: clearing site data clears the shelf.
+
+### Getting good voices
+
+The narration is only as good as the voices your system has installed, and the
+ones that ship by default are the robotic ones. On recent macOS they live in
+System Settings → Accessibility → Spoken Content → System Voice → Manage
+Voices, where the premium English voices are a download each; on Windows it is
+Settings → Time & language → Speech. Restart the browser afterwards, then star
+the good ones with the `Pick voices` button.
+
+Chrome exposes the most voices (system voices plus Google's own), Safari and
+Edge expose the system ones. Whichever you use, the first press of play has to
+come from a real click — browsers block speech that starts on its own.
 
 ```bash
 npm test           # unit tests for extraction, chunking and normalization
