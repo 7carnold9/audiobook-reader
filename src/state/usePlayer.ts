@@ -27,6 +27,8 @@ export interface Player {
   duration: number
   play: () => void
   pause: () => void
+  /** Ends the utterance outright, keeping the position. */
+  stop: () => void
   toggle: () => void
   seekToChunk: (index: number) => void
   skip: (delta: number) => void
@@ -129,6 +131,11 @@ export function usePlayer({
     handleRef.current?.pause()
   }, [])
 
+  const stop = useCallback(() => {
+    setPaused(false)
+    setEngaged(false)
+  }, [])
+
   const toggle = useCallback(() => {
     if (engaged && !paused) pause()
     else play()
@@ -176,6 +183,7 @@ export function usePlayer({
     duration: timeline.total / rate,
     play,
     pause,
+    stop,
     toggle,
     seekToChunk,
     skip,

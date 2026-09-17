@@ -1,3 +1,4 @@
+import { shortlist } from '../lib/tts'
 import type { Player } from '../state/usePlayer'
 import type { TtsProvider, TtsVoice } from '../lib/tts'
 
@@ -11,7 +12,9 @@ interface Props {
   onProviderChange: (id: string) => void
   voices: TtsVoice[]
   voiceId: string | null
+  favourites: string[]
   onVoiceChange: (id: string) => void
+  onOpenVoices: () => void
 }
 
 const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5]
@@ -26,9 +29,13 @@ export function PlayerBar({
   onProviderChange,
   voices,
   voiceId,
+  favourites,
   onVoiceChange,
+  onOpenVoices,
 }: Props) {
   const playing = player.status === 'playing'
+  const starred = shortlist(voices, favourites)
+  const current = voices.find((voice) => voice.id === voiceId)
 
   return (
     <div className="player">
@@ -90,16 +97,34 @@ export function PlayerBar({
           ) : null}
 
           {voices.length ? (
-            <label>
+            <div className="voicebar">
               <span className="muted">Voice</span>
-              <select value={voiceId ?? ''} onChange={(event) => onVoiceChange(event.target.value)}>
-                {voices.map((voice) => (
-                  <option key={voice.id} value={voice.id}>
-                    {voice.name} ({voice.lang})
-                  </option>
-                ))}
-              </select>
-            </label>
+              {starred.length ? (
+                starred.map((voice) => (
+                  <button
+                    key={voice.id}
+                    type="button"
+                    className={`chip${voice.id === voiceId ? ' chip--on' : ''}`}
+                    title={`${voice.name} (${voice.lang})`}
+                    onClick={() => onVoiceChange(voice.id)}
+                  >
+                    {voice.name}
+                  </button>
+                ))
+              ) : (
+                <span className="chip chip--on" title={current ? `${current.name} (${current.lang})` : undefined}>
+                  {current?.name ?? 'System default'}
+                </span>
+              )}
+              <button
+                type="button"
+                className="button button--ghost voicebar__more"
+                onClick={onOpenVoices}
+                title="Browse and shortlist voices (v)"
+              >
+                {starred.length ? '⋯' : 'Pick voices'}
+              </button>
+            </div>
           ) : null}
 
           <span className="muted player__page">

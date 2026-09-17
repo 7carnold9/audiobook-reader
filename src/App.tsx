@@ -17,7 +17,12 @@ import {
 import type { BookRecord, ProgressRecord } from './lib/storage/db'
 import { availableProviders } from './lib/tts'
 
-const DEFAULT_SETTINGS: ReaderSettings = { rate: 1, providerId: 'web-speech', voiceId: null }
+const DEFAULT_SETTINGS: ReaderSettings = {
+  rate: 1,
+  providerId: 'web-speech',
+  voiceId: null,
+  favouriteVoiceIds: [],
+}
 
 export default function App() {
   const [books, setBooks] = useState<BookRecord[]>([])

@@ -5,6 +5,7 @@ import type { TtsProvider } from './types'
 
 export type { TtsProvider, TtsVoice, SpeakOptions, SpeechHandle } from './types'
 export { webSpeechProvider, createHttpTtsProvider }
+export { MAX_FAVOURITES, orderVoices, searchVoices, shortlist, toggleFavourite } from './favourites'
 
 /**
  * Providers available to the player. The browser voice is always present; a

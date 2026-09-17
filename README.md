@@ -66,8 +66,22 @@ A few decisions worth knowing about:
 ## Controls
 
 Space play/pause · ← → previous/next chunk · J/L back/forward ten chunks ·
-click any paragraph to jump there. Lock-screen and headset controls are wired up
-through the Media Session API, and the screen is kept awake while narrating.
+V open the voice picker · click any paragraph to jump there. Lock-screen and
+headset controls are wired up through the Media Session API, and the screen is
+kept awake while narrating.
+
+### Voices
+
+Chrome alone exposes well over a hundred system voices, which is useless as a
+dropdown. Instead, the picker (the `Pick voices` button, or `V`) lists every
+voice the engine offers with search over names and language tags, and previews
+each one **on the passage you are currently reading** rather than a canned demo
+sentence. Star up to six and they become buttons in the player bar, so switching
+later is one click. The shortlist and the chosen voice are stored with your other
+settings, so they survive a reload.
+
+Previewing cancels whatever the engine is saying, so narration stops while the
+picker is open and resumes from the start of the current chunk when it closes.
 
 Position, speed and voice are stored per book in IndexedDB, along with the PDF
 itself, so the library survives a reload and each book resumes where it stopped.
@@ -116,15 +130,18 @@ has no word-timing data, so highlighting falls back to the chunk level.
 
 ## What has been tested
 
-- 42 unit tests over line grouping, cleaning, chunking, chapters, speech
-  normalization and the playback timeline (`npm test`).
+- 48 unit tests over line grouping, cleaning, chunking, chapters, speech
+  normalization, voice shortlisting and the playback timeline (`npm test`).
 - The full pipeline run over three generated fixture PDFs — a novel with running
   headers, hyphenation and outline bookmarks; a two-column paper with footnotes,
   citations and maths; a report with a table and bullets (`npm run probe`).
   They are generated rather than downloaded because this environment has no
   outbound access to fetch real books; `scripts/make-fixtures.py` builds them.
 - A browser run in Chromium: upload, extraction, transcript, chapter list,
-  scrubbing, speed, and library plus resume position surviving a reload.
+  scrubbing, speed, and library plus resume position surviving a reload. The
+  voice picker was driven against a stubbed voice list — search, starring, the
+  six-voice cap, quick-switching from the player bar and persistence across a
+  reload.
 
 The one thing that could not be verified here is audio itself — the headless
 browser has no system voices installed, so the player correctly reports that the

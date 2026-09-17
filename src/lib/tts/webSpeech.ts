@@ -32,8 +32,13 @@ export const webSpeechProvider: TtsProvider = {
     utterance.rate = clampRate(rate)
     const voice = voiceId ? synthesis.getVoices().find((item) => item.voiceURI === voiceId) : null
     if (voice) {
-      utterance.voice = voice
-      utterance.lang = voice.lang
+      try {
+        utterance.voice = voice
+        utterance.lang = voice.lang
+      } catch {
+        // The voice list can go stale between listing and speaking; falling back
+        // to the platform default is better than failing to speak at all.
+      }
     }
 
     let finished = false
