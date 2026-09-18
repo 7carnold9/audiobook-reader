@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { estimateSeconds, toSpeech, tokenAtOffset } from '../lib/text/normalize'
-import type { SpeechHandle, TtsProvider } from '../lib/tts'
+import { estimateSeconds, toSpeech } from '../lib/text/normalize'
+import { Narration } from './narration'
+import type { TtsProvider } from '../lib/tts'
 import type { Chunk } from '../lib/pdf/types'
 
 export type PlayerStatus = 'idle' | 'playing' | 'paused' | 'ended'
@@ -37,11 +38,12 @@ export interface Player {
 }
 
 /**
- * Drives sequential playback over the book's chunks.
+ * React wrapper around `Narration`, which owns the actual sequencing.
  *
  * Playback is engaged/disengaged separately from pausing so that pausing can
  * use the provider's own pause instead of tearing down the utterance, which
- * would lose the position inside the current chunk.
+ * would lose the position inside the current chunk. Seeking, and any change of
+ * rate or voice, restarts narration from the current chunk.
  */
 export function usePlayer({
   bookId,
@@ -58,8 +60,12 @@ export function usePlayer({
   const [tokenIndex, setTokenIndex] = useState(-1)
   const [rate, setRateState] = useState(initialRate)
   const [error, setError] = useState<string | null>(null)
+  const [finished, setFinished] = useState(false)
+  /** Bumped to restart narration from `indexRef` — a seek, not a natural advance. */
+  const [session, setSession] = useState(0)
 
-  const handleRef = useRef<SpeechHandle | null>(null)
+  const indexRef = useRef(initialIndex)
+  const narrationRef = useRef<Narration | null>(null)
   const pausedRef = useRef(paused)
   pausedRef.current = paused
 
@@ -71,64 +77,56 @@ export function usePlayer({
 
   useEffect(() => {
     if (!engaged) return
-    const chunk = chunks[index]
-    if (!chunk) {
-      setEngaged(false)
-      return
-    }
 
-    const speech = toSpeech(chunk.text)
-    if (!speech.text) {
-      setIndex((current) => current + 1)
-      return
-    }
-
-    let cancelled = false
-    setTokenIndex(-1)
-    setError(null)
-
-    const handle = provider.speak({
-      text: speech.text,
-      rate,
+    const narration = new Narration({
+      provider,
+      chunks,
+      bookId,
       voiceId,
-      cacheKey: `${bookId}:${chunk.index}`,
-      onBoundary: (charIndex) => {
-        if (!cancelled) setTokenIndex(tokenAtOffset(speech, charIndex))
-      },
-      onEnd: (speakError) => {
-        if (cancelled) return
-        if (speakError) {
-          setError(speakError.message)
+      rate,
+      callbacks: {
+        onIndex: (next) => {
+          indexRef.current = next
+          setIndex(next)
+        },
+        onToken: setTokenIndex,
+        onError: (message) => {
+          setError(message)
           setPaused(true)
-          return
-        }
-        setIndex((current) => current + 1)
+        },
+        onFinished: () => {
+          setFinished(true)
+          setEngaged(false)
+        },
       },
     })
-    handleRef.current = handle
+
+    narrationRef.current = narration
+    setError(null)
     // A rate or voice change while paused restarts the chunk; keep it paused.
-    if (pausedRef.current) handle.pause()
+    if (pausedRef.current) narration.pause()
+    narration.start(indexRef.current)
 
     return () => {
-      cancelled = true
-      handle.stop()
-      if (handleRef.current === handle) handleRef.current = null
+      narration.stop()
+      if (narrationRef.current === narration) narrationRef.current = null
     }
-  }, [engaged, index, rate, voiceId, provider, chunks, bookId])
+  }, [engaged, session, rate, voiceId, provider, chunks, bookId])
 
   // Stop speaking if the component unmounts mid-sentence.
-  useEffect(() => () => handleRef.current?.stop(), [])
+  useEffect(() => () => narrationRef.current?.stop(), [])
 
   const play = useCallback(() => {
     setError(null)
+    setFinished(false)
+    if (pausedRef.current) narrationRef.current?.resume()
     setPaused(false)
-    if (handleRef.current && pausedRef.current) handleRef.current.resume()
     setEngaged(true)
   }, [])
 
   const pause = useCallback(() => {
     setPaused(true)
-    handleRef.current?.pause()
+    narrationRef.current?.pause()
   }, [])
 
   const stop = useCallback(() => {
@@ -144,13 +142,19 @@ export function usePlayer({
   const seekToChunk = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(chunks.length - 1, next))
-      setTokenIndex(-1)
+      indexRef.current = clamped
       setIndex(clamped)
+      setTokenIndex(-1)
+      setFinished(false)
+      setSession((current) => current + 1)
     },
     [chunks.length],
   )
 
-  const skip = useCallback((delta: number) => setIndexClamped(setIndex, delta, chunks.length), [chunks.length])
+  const skip = useCallback(
+    (delta: number) => seekToChunk(indexRef.current + delta),
+    [seekToChunk],
+  )
 
   const seekToSeconds = useCallback(
     (seconds: number) => seekToChunk(chunkAtSeconds(timeline, seconds * rate)),
@@ -160,7 +164,7 @@ export function usePlayer({
   const setRate = useCallback((next: number) => setRateState(Math.min(3, Math.max(0.5, next))), [])
 
   const status: PlayerStatus = !engaged
-    ? index >= chunks.length && chunks.length > 0
+    ? finished
       ? 'ended'
       : 'idle'
     : paused
@@ -190,14 +194,6 @@ export function usePlayer({
     seekToSeconds,
     setRate,
   }
-}
-
-function setIndexClamped(
-  setIndex: (updater: (current: number) => number) => void,
-  delta: number,
-  length: number,
-): void {
-  setIndex((current) => Math.max(0, Math.min(length - 1, current + delta)))
 }
 
 export interface Timeline {

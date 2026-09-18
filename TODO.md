@@ -64,8 +64,9 @@ Ordered by what unblocks the most, not by effort.
       the page, loses real text.
 - [ ] **No chapter detection** for documents with neither bookmarks nor styled
       headings — a plain-text export gets one chapter for the whole book.
-- [ ] **Headings run straight into the body text.** A pause, or a different
-      voice, would mark them audibly.
+- [ ] **Delivery is tuned by guess, not by ear.** The pauses (420ms between
+      paragraphs, 900/650ms either side of a heading) and the heading slowdown
+      were picked blind. They need adjusting against a real voice.
 
 ## Cloud voices (framework step 5)
 
@@ -73,8 +74,10 @@ Ordered by what unblocks the most, not by effort.
       never spoken to a live one.
 - [ ] **Measure the real cost of one full book** before turning it on for a
       whole library.
-- [ ] **Pre-synthesize the next chunk while the current one plays**, so cloud
-      voices don't gap between chunks the way they will today.
+- [ ] **Pre-synthesize the next chunk while the current one plays.** System
+      voices now play a paragraph as one continuous queue; cloud voices cannot
+      yet, so they will gap between chunks exactly the way system voices used
+      to. This is what closes that.
 - [ ] **Sentence-level highlight fallback.** Cloud audio carries no word
       timings, so highlighting drops to the whole chunk.
 - [ ] **Cache eviction policy**, paired with the visible cache size above.

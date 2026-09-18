@@ -9,6 +9,7 @@ export const webSpeechProvider: TtsProvider = {
   id: 'web-speech',
   name: 'System voice (free)',
   supportsBoundaries: true,
+  supportsQueueing: true,
 
   isAvailable: () => typeof window !== 'undefined' && 'speechSynthesis' in window,
 
@@ -23,10 +24,11 @@ export const webSpeechProvider: TtsProvider = {
     }))
   },
 
-  speak({ text, rate, voiceId, onBoundary, onEnd }: SpeakOptions): SpeechHandle {
+  speak({ text, rate, voiceId, append, onStart, onBoundary, onEnd }: SpeakOptions): SpeechHandle {
     const synthesis = window.speechSynthesis
-    // A pending utterance from a previous chunk would otherwise queue up behind us.
-    synthesis.cancel()
+    // Appending is the whole point of queueing: only clear the queue when this
+    // request is meant to interrupt what is playing.
+    if (!append) synthesis.cancel()
 
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.rate = clampRate(rate)
@@ -45,10 +47,11 @@ export const webSpeechProvider: TtsProvider = {
     const finish = (error?: Error) => {
       if (finished) return
       finished = true
-      clearInterval(keepAlive)
+      if (keepAlive !== undefined) clearInterval(keepAlive)
       onEnd(error)
     }
 
+    utterance.onstart = () => onStart?.()
     utterance.onboundary = (event) => {
       if (event.name === 'word' || event.name === undefined) onBoundary?.(event.charIndex)
     }
@@ -57,26 +60,29 @@ export const webSpeechProvider: TtsProvider = {
       // Cancelling is how we stop playback, so it is not an error condition.
       if (event.error === 'canceled' || event.error === 'interrupted') {
         finished = true
-        clearInterval(keepAlive)
+        if (keepAlive !== undefined) clearInterval(keepAlive)
         return
       }
       finish(new Error(describeError(event.error)))
     }
 
-    // Chromium stops speaking after ~15s unless it is nudged.
-    const keepAlive = setInterval(() => {
-      if (synthesis.speaking && !synthesis.paused) {
-        synthesis.pause()
-        synthesis.resume()
-      }
-    }, 10_000)
+    // Chromium stops speaking after ~15s unless it is nudged. The nudge can
+    // click audibly, so it is only armed where the bug exists.
+    const keepAlive = needsKeepAlive()
+      ? setInterval(() => {
+          if (synthesis.speaking && !synthesis.paused) {
+            synthesis.pause()
+            synthesis.resume()
+          }
+        }, 10_000)
+      : undefined
 
     synthesis.speak(utterance)
 
     return {
       stop: () => {
         finished = true
-        clearInterval(keepAlive)
+        if (keepAlive !== undefined) clearInterval(keepAlive)
         synthesis.cancel()
       },
       pause: () => synthesis.pause(),
@@ -100,6 +106,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 function describeError(error: string): string {
   return ERROR_MESSAGES[error] ?? `Speech synthesis failed (${error}).`
+}
+
+/** Only Chromium truncates long utterances; Safari does not and dislikes the nudge. */
+function needsKeepAlive(): boolean {
+  return /Chrome|Chromium|Edg\//.test(navigator.userAgent)
 }
 
 function clampRate(rate: number): number {

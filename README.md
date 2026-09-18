@@ -65,7 +65,7 @@ PDF ─▶ extract ─▶ clean ─▶ chunk ─▶ normalize ─▶ speak ─�
 | Chapters | `src/lib/pdf/chapters.ts` | PDF outline (bookmarks) where present, heading heuristics otherwise |
 | Normalize | `src/lib/text/normalize.ts` | citations, URLs, maths symbols and abbreviations rewritten for speech |
 | Speak | `src/lib/tts/*` | provider interface; browser voices today, cloud voices behind the same interface |
-| Play | `src/state/usePlayer.ts` | sequential playback, seeking, speed, word-boundary highlighting |
+| Play | `src/state/narration.ts`, `usePlayer.ts` | continuous playback, pacing, seeking, speed, word-boundary highlighting |
 
 A few decisions worth knowing about:
 
@@ -80,6 +80,13 @@ A few decisions worth knowing about:
   word-level highlight in the transcript.
 - **Chunks are stable.** The same paragraphs always produce the same chunks, so
   synthesized audio can be cached per chunk and never regenerated.
+- **Chunks are a synthesis detail, not a unit of speech.** A paragraph split
+  across three chunks is handed to the engine as one queue and plays straight
+  through with no seam. The narration only stops where a narrator would breathe
+  — between paragraphs, and either side of a heading, which is also read a
+  little slower. Sequencing lives in `src/state/narration.ts` and is tested
+  against a fake engine, because the pauses are what make it sound narrated
+  rather than machine-read.
 
 ## Controls
 

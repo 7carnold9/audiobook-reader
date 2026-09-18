@@ -25,12 +25,15 @@ export function createHttpTtsProvider(config: HttpTtsConfig): TtsProvider {
     // Most cloud APIs return plain audio with no timing data, so highlighting
     // falls back to the chunk level.
     supportsBoundaries: false,
+    // Each request is its own audio element, so there is no seamless queue yet.
+    // Pre-fetching the next chunk is the fix, and is still to do.
+    supportsQueueing: false,
 
     isAvailable: () => Boolean(config.endpoint),
 
     listVoices: async () => config.voices ?? [],
 
-    speak({ text, rate, voiceId, cacheKey, onEnd }: SpeakOptions): SpeechHandle {
+    speak({ text, rate, voiceId, cacheKey, onStart, onEnd }: SpeakOptions): SpeechHandle {
       const audio = new Audio()
       audio.preload = 'auto'
       let stopped = false
@@ -57,6 +60,7 @@ export function createHttpTtsProvider(config: HttpTtsConfig): TtsProvider {
           objectUrl = URL.createObjectURL(blob)
           audio.src = objectUrl
           audio.playbackRate = rate
+          audio.onplaying = () => onStart?.()
           audio.onended = () => finish()
           audio.onerror = () => finish(new Error('Could not play the synthesized audio'))
           await audio.play()
