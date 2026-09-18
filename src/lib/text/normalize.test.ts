@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { speakToken, toSpeech, tokenAtOffset } from './normalize'
+import { speakToken, toSpeech, tokenAtOffset, tokenIndexAtCharOffset } from './normalize'
 
 describe('speakToken', () => {
   it('drops inline citations and footnote markers', () => {
@@ -53,5 +53,27 @@ describe('toSpeech', () => {
     const speech = toSpeech('• [12]')
     expect(speech.text).toBe('')
     expect(tokenAtOffset(speech, 0)).toBe(-1)
+  })
+})
+
+describe('tokenIndexAtCharOffset', () => {
+  const text = 'It was a bright cold day in April.'
+
+  it('finds the word under a character offset', () => {
+    expect(tokenIndexAtCharOffset(text, 0)).toBe(0) // "It"
+    expect(tokenIndexAtCharOffset(text, 3)).toBe(1) // "was"
+    expect(tokenIndexAtCharOffset(text, text.indexOf('bright'))).toBe(3)
+    expect(tokenIndexAtCharOffset(text, text.indexOf('April'))).toBe(7)
+  })
+
+  it('treats a click in the space before a word as the word before it', () => {
+    // Offset 2 is the space between "It" and "was".
+    expect(tokenIndexAtCharOffset(text, 2)).toBe(0)
+  })
+
+  it('clamps outside the string', () => {
+    expect(tokenIndexAtCharOffset(text, -5)).toBe(0)
+    expect(tokenIndexAtCharOffset(text, 9999)).toBe(7)
+    expect(tokenIndexAtCharOffset('', 4)).toBe(0)
   })
 })

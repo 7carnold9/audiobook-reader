@@ -240,3 +240,62 @@ describe('Narration', () => {
     expect(events.onToken).toHaveBeenLastCalledWith(0)
   })
 })
+
+describe('Narration starting partway through a chunk', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  const chunks = [
+    chunk(0, 'It was a bright cold day in April.', { startsParagraph: true }),
+    chunk(1, 'The clocks were striking thirteen.'),
+  ]
+
+  const narrate = (engine: ReturnType<typeof fakeProvider>, events = callbacks()) => ({
+    narration: new Narration({
+      provider: engine.provider,
+      chunks,
+      bookId: 'book',
+      voiceId: null,
+      rate: 1,
+      callbacks: events,
+    }),
+    events,
+  })
+
+  it('speaks only from the chosen word onwards', () => {
+    const engine = fakeProvider()
+    const { narration } = narrate(engine)
+    narration.start(0, 3) // "bright"
+
+    expect(engine.texts()[0]).toBe('bright cold day in April.')
+  })
+
+  it('reports highlight positions in the whole chunk, not the fragment', () => {
+    const engine = fakeProvider()
+    const { narration, events } = narrate(engine)
+    narration.start(0, 3)
+
+    engine.spoken[0].onStart?.()
+    expect(events.onToken).toHaveBeenLastCalledWith(3)
+
+    // Offset 7 in "bright cold day in April." is "cold", the 5th word overall.
+    engine.spoken[0].onBoundary?.(7)
+    expect(events.onToken).toHaveBeenLastCalledWith(4)
+  })
+
+  it('reads the following chunks in full', () => {
+    const engine = fakeProvider()
+    const { narration } = narrate(engine)
+    narration.start(0, 3)
+
+    expect(engine.texts()[1]).toBe('The clocks were striking thirteen.')
+  })
+
+  it('moves to the next chunk when the click lands past the last word', () => {
+    const engine = fakeProvider()
+    const { narration } = narrate(engine)
+    narration.start(0, 99)
+
+    expect(engine.texts()[0]).toBe('The clocks were striking thirteen.')
+  })
+})

@@ -175,3 +175,25 @@ export function tokenAtOffset(speech: SpeechText, charIndex: number): number {
   }
   return best >= 0 ? speech.words[best].token : -1
 }
+
+/**
+ * Maps a character offset in a display string to the index of the word token
+ * containing it — the bridge between "the reader clicked here" and the token
+ * indices the player speaks from.
+ */
+export function tokenIndexAtCharOffset(text: string, charOffset: number): number {
+  if (charOffset <= 0) return 0
+  let index = -1
+  let insideToken = false
+  const limit = Math.min(charOffset, text.length - 1)
+  for (let i = 0; i <= limit; i++) {
+    const space = /\s/.test(text[i])
+    if (space) {
+      insideToken = false
+    } else if (!insideToken) {
+      index++
+      insideToken = true
+    }
+  }
+  return Math.max(0, index)
+}

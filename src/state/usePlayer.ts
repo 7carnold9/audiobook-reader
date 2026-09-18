@@ -32,6 +32,8 @@ export interface Player {
   stop: () => void
   toggle: () => void
   seekToChunk: (index: number) => void
+  /** Jump to a chunk, optionally to a word within it, and start reading there. */
+  startAt: (index: number, token?: number) => void
   skip: (delta: number) => void
   seekToSeconds: (seconds: number) => void
   setRate: (rate: number) => void
@@ -65,6 +67,8 @@ export function usePlayer({
   const [session, setSession] = useState(0)
 
   const indexRef = useRef(initialIndex)
+  /** Word within `indexRef` to begin at; consumed by the next start. */
+  const tokenRef = useRef(0)
   const narrationRef = useRef<Narration | null>(null)
   const pausedRef = useRef(paused)
   pausedRef.current = paused
@@ -105,7 +109,10 @@ export function usePlayer({
     setError(null)
     // A rate or voice change while paused restarts the chunk; keep it paused.
     if (pausedRef.current) narration.pause()
-    narration.start(indexRef.current)
+    narration.start(indexRef.current, tokenRef.current)
+    // The starting word applies to this run only; a later restart (a speed or
+    // voice change) begins at the top of whatever chunk is then current.
+    tokenRef.current = 0
 
     return () => {
       narration.stop()
@@ -140,15 +147,28 @@ export function usePlayer({
   }, [engaged, paused, pause, play])
 
   const seekToChunk = useCallback(
-    (next: number) => {
+    (next: number, token = 0) => {
       const clamped = Math.max(0, Math.min(chunks.length - 1, next))
       indexRef.current = clamped
+      tokenRef.current = Math.max(0, token)
       setIndex(clamped)
-      setTokenIndex(-1)
+      // Show the chosen word as current straight away, before the engine speaks.
+      setTokenIndex(token > 0 ? token : -1)
       setFinished(false)
       setSession((current) => current + 1)
     },
     [chunks.length],
+  )
+
+  const startAt = useCallback(
+    (next: number, token = 0) => {
+      seekToChunk(next, token)
+      setError(null)
+      if (pausedRef.current) narrationRef.current?.resume()
+      setPaused(false)
+      setEngaged(true)
+    },
+    [seekToChunk],
   )
 
   const skip = useCallback(
@@ -190,6 +210,7 @@ export function usePlayer({
     stop,
     toggle,
     seekToChunk,
+    startAt,
     skip,
     seekToSeconds,
     setRate,

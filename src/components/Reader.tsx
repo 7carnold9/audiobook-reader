@@ -162,7 +162,7 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
             index={player.index}
             tokenIndex={player.tokenIndex}
             wordHighlighting={provider?.supportsBoundaries ?? false}
-            onSeek={player.seekToChunk}
+            onStartAt={player.startAt}
           />
         </main>
       </div>

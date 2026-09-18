@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { toSpeech } from '../lib/text/normalize'
+import { charOffsetAtPoint, hasTextSelection } from './caret'
+import { toSpeech, tokenIndexAtCharOffset } from '../lib/text/normalize'
 import type { Chunk } from '../lib/pdf/types'
 
 interface Props {
@@ -8,13 +9,14 @@ interface Props {
   tokenIndex: number
   /** True when the engine reports word boundaries; otherwise only the chunk is highlighted. */
   wordHighlighting: boolean
-  onSeek: (index: number) => void
+  /** Start reading at a chunk, and at a word within it. */
+  onStartAt: (index: number, token: number) => void
 }
 
 /** How many chunks either side of the current one are kept in the DOM. */
 const WINDOW = 120
 
-export function Transcript({ chunks, index, tokenIndex, wordHighlighting, onSeek }: Props) {
+export function Transcript({ chunks, index, tokenIndex, wordHighlighting, onStartAt }: Props) {
   const activeRef = useRef<HTMLParagraphElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -32,6 +34,21 @@ export function Transcript({ chunks, index, tokenIndex, wordHighlighting, onSeek
     () => (chunks[index] ? toSpeech(chunks[index].text).tokens : []),
     [chunks, index],
   )
+
+  /** A click anywhere in the text means "read from this word". */
+  const handleClick = (event: React.MouseEvent<HTMLParagraphElement>, chunk: Chunk) => {
+    // Dragging out a selection is reading, not seeking.
+    if (hasTextSelection()) return
+
+    const span = (event.target as HTMLElement).closest<HTMLElement>('[data-token]')
+    if (span?.dataset.token !== undefined) {
+      onStartAt(chunk.index, Number(span.dataset.token))
+      return
+    }
+
+    const offset = charOffsetAtPoint(event.currentTarget, event.clientX, event.clientY)
+    onStartAt(chunk.index, offset === null ? 0 : tokenIndexAtCharOffset(chunk.text, offset))
+  }
 
   return (
     <div className="transcript" ref={containerRef}>
@@ -52,12 +69,16 @@ export function Transcript({ chunks, index, tokenIndex, wordHighlighting, onSeek
             key={chunk.index}
             ref={active ? activeRef : undefined}
             className={className}
-            onClick={() => onSeek(chunk.index)}
-            title={`Page ${chunk.page} — click to jump here`}
+            onClick={(event) => handleClick(event, chunk)}
+            title={`Page ${chunk.page} — click any word to read from there`}
           >
             {active && wordHighlighting && tokenIndex >= 0
               ? tokens.map((token, i) => (
-                  <span key={i} className={i === tokenIndex ? 'word word--current' : 'word'}>
+                  <span
+                    key={i}
+                    data-token={i}
+                    className={i === tokenIndex ? 'word word--current' : 'word'}
+                  >
                     {token}{' '}
                   </span>
                 ))

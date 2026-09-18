@@ -67,13 +67,23 @@ export class Narration {
   private speaking = -1
   private paused = false
   private stopped = false
+  /** Chunk the reader started from, and how far into it, in display tokens. */
+  private startIndex = 0
+  private startToken = 0
 
   constructor(private readonly options: NarrationOptions) {}
 
-  start(from: number): void {
+  /**
+   * Begins at `from`, optionally partway through it: `fromToken` is a display
+   * token index, so a reader can click a word and be read to from that word
+   * rather than from the top of the chunk.
+   */
+  start(from: number, fromToken = 0): void {
     this.stopped = false
     this.speaking = -1
     this.queuedTo = from - 1
+    this.startIndex = from
+    this.startToken = Math.max(0, fromToken)
     this.speak(from, false, 0)
   }
 
@@ -104,9 +114,13 @@ export class Narration {
       return
     }
 
-    const speech = toSpeech(chunk.text)
+    // Only the chunk the reader started from can begin partway through.
+    const offset = index === this.startIndex ? this.startToken : 0
+    const whole = toSpeech(chunk.text)
+    const speech = offset > 0 ? toSpeech(whole.tokens.slice(offset).join(' ')) : whole
     if (!speech.text) {
-      // Nothing speakable in this chunk (a stray citation, a bullet glyph).
+      // Nothing speakable here: a stray citation, a bullet glyph, or a click
+      // past the last word of the chunk.
       this.speak(index + 1, append, depth)
       return
     }
@@ -122,12 +136,13 @@ export class Narration {
       onStart: () => {
         if (this.stopped) return
         this.speaking = index
-        callbacks.onToken(-1)
+        callbacks.onToken(offset > 0 ? offset : -1)
         callbacks.onIndex(index)
       },
       onBoundary: (charIndex) => {
         if (this.stopped || this.speaking !== index) return
-        callbacks.onToken(tokenAtOffset(speech, charIndex))
+        const token = tokenAtOffset(speech, charIndex)
+        callbacks.onToken(token < 0 ? -1 : offset + token)
       },
       onEnd: (error) => {
         if (this.stopped) return

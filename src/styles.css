@@ -312,3 +312,9 @@ h3 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; colo
 @media (max-width: 760px) {
   .chip { max-width: 6.5rem; }
 }
+
+/* Click-to-read ------------------------------------------------------------ */
+.transcript__chunk:hover { background: var(--surface-2); }
+.transcript__chunk--active:hover { background: var(--accent-soft); }
+.word:hover { text-decoration: underline; text-underline-offset: 3px; }
+.transcript__hint { margin: 0 0 0.75rem; }
