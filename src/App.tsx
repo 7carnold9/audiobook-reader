@@ -3,8 +3,8 @@ import { Library } from './components/Library'
 import { Reader } from './components/Reader'
 import type { ReaderSettings } from './components/Reader'
 import { UploadDropzone } from './components/UploadDropzone'
-import { ingestPdf } from './lib/pdf/ingest'
-import type { IngestProgress } from './lib/pdf/ingest'
+import { ingestFile } from './lib/ingest'
+import type { IngestProgress } from './lib/ingest'
 import {
   deleteBook,
   getSetting,
@@ -60,7 +60,7 @@ export default function App() {
     setError(null)
     setBusy({ stage: 'reading', fraction: 0 })
     try {
-      const book = await ingestPdf(file, setBusy)
+      const book = await ingestFile(file, setBusy)
       await saveBook(book, file)
       setBooks((current) => [book, ...current])
       setOpenId(book.id)

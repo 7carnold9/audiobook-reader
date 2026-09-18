@@ -3,6 +3,7 @@ import type { CleanStats } from '../pdf/clean'
 
 export interface BookRecord {
   id: string
+  format: 'pdf' | 'epub'
   title: string
   author: string | null
   pageCount: number

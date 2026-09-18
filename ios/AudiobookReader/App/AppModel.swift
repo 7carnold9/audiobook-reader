@@ -14,6 +14,8 @@ public final class AppModel {
     }
 
     public private(set) var books: [BookSummary] = []
+    /// Cached so the shelf does not hit the disk once per row per redraw.
+    public private(set) var positions: [UUID: ReadingPosition] = [:]
     public private(set) var voices: [Voice] = []
     public private(set) var importState: ImportState = .idle
     public var settings: AppSettings {
@@ -32,7 +34,7 @@ public final class AppModel {
     }
 
     public func load() async {
-        books = store.books()
+        refreshShelf()
         voices = await speech.voices()
         // A voice that has been deleted in Settings must not be spoken with.
         if let voiceID = settings.voiceID, !voices.contains(where: { $0.id == voiceID }) {
@@ -76,7 +78,7 @@ public final class AppModel {
             }.value
 
             _ = try store.add(book, source: staged)
-            books = store.books()
+            refreshShelf()
             importState = .idle
         } catch {
             importState = .failed(error.localizedDescription)
@@ -85,7 +87,18 @@ public final class AppModel {
 
     public func delete(_ book: BookSummary) {
         try? store.delete(book.id)
+        refreshShelf()
+    }
+
+    /// Re-reads the shelf and everyone's place in it. Cheap: one small index
+    /// file plus one tiny position file per book.
+    public func refreshShelf() {
         books = store.books()
+        positions = Dictionary(
+            uniqueKeysWithValues: books.compactMap { book in
+                store.position(for: book.id).map { (book.id, $0) }
+            }
+        )
     }
 
     public func dismissImportError() {
@@ -120,11 +133,8 @@ public final class AppModel {
     }
 
     public func progressLabel(for book: BookSummary) -> String? {
-        guard let position = store.position(for: book.id) else { return nil }
-        guard let contents = try? store.contents(for: book.id), !contents.chunks.isEmpty else {
-            return nil
-        }
-        let percent = Int((Double(position.chunkIndex) / Double(contents.chunks.count)) * 100)
+        guard book.chunkCount > 0, let position = positions[book.id] else { return nil }
+        let percent = Int((Double(position.chunkIndex) / Double(book.chunkCount)) * 100)
         return percent <= 0 ? nil : "\(percent)% read"
     }
 }

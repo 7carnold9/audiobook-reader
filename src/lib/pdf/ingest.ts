@@ -2,14 +2,12 @@ import { cleanPages } from './clean'
 import { chunkParagraphs } from './chunk'
 import { buildChapters } from './chapters'
 import { extractPdf } from './extract'
+import { countWords, usableAuthor, usableTitle } from '../bookMetadata'
+import type { IngestProgress } from '../bookMetadata'
 import type { BookRecord } from '../storage/db'
 
-export interface IngestProgress {
-  stage: 'reading' | 'extracting' | 'cleaning' | 'done'
-  fraction: number
-  page?: number
-  pageCount?: number
-}
+export type { IngestProgress } from '../bookMetadata'
+export { countWords, usableAuthor, usableTitle } from '../bookMetadata'
 
 export class EmptyPdfError extends Error {
   constructor() {
@@ -47,6 +45,7 @@ export async function ingestPdf(
 
   return {
     id: crypto.randomUUID(),
+    format: 'pdf',
     title: usableTitle(document.title) ?? file.name.replace(/\.pdf$/i, ''),
     author: usableAuthor(document.author),
     pageCount: document.pageCount,
@@ -58,26 +57,3 @@ export async function ingestPdf(
   }
 }
 
-/**
- * PDF metadata titles are unreliable — exporters leave behind placeholders and
- * source filenames — so obvious junk falls back to the file name.
- */
-export function usableTitle(title: string): string | null {
-  const trimmed = title.trim()
-  if (trimmed.length < 2) return null
-  if (/^(untitled|unknown|document\d*|microsoft word|pdf document)$/i.test(trimmed)) return null
-  if (/^microsoft word\s*-/i.test(trimmed)) return null
-  if (/\.(docx?|pdf|indd|tex|pages|odt)$/i.test(trimmed)) return null
-  return trimmed
-}
-
-export function usableAuthor(author: string | null): string | null {
-  const trimmed = author?.trim() ?? ''
-  if (!trimmed) return null
-  if (/^(anonymous|unknown|user|administrator|owner)$/i.test(trimmed)) return null
-  return trimmed
-}
-
-export function countWords(text: string): number {
-  return text.split(/\s+/).filter(Boolean).length
-}

@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
-import type { IngestProgress } from '../lib/pdf/ingest'
+import { ACCEPTED_TYPES, isSupportedBook } from '../lib/ingest'
+import type { IngestProgress } from '../lib/ingest'
 
 interface Props {
   onFile: (file: File) => void
@@ -19,7 +20,7 @@ export function UploadDropzone({ onFile, busy, error, variant = 'empty' }: Props
 
   const handleFiles = useCallback(
     (files: FileList | null) => {
-      const file = Array.from(files ?? []).find((candidate) => candidate.type === 'application/pdf' || /\.pdf$/i.test(candidate.name))
+      const file = Array.from(files ?? []).find(isSupportedBook)
       if (file) onFile(file)
     },
     [onFile],
@@ -51,7 +52,7 @@ export function UploadDropzone({ onFile, busy, error, variant = 'empty' }: Props
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept={ACCEPTED_TYPES}
         hidden
         onChange={(event) => {
           handleFiles(event.target.files)

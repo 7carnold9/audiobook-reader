@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { Player } from '../state/usePlayer'
 
 interface Props {
@@ -6,6 +7,8 @@ interface Props {
   title: string
   page: number
   pageCount: number
+  /** EPUBs have no pages; their spine documents are sections. */
+  unit?: 'page' | 'section'
   voiceLabel: string
   onOpenVoices: () => void
   onBookmark: () => void
@@ -13,7 +16,12 @@ interface Props {
   bookmarked: boolean
 }
 
-const RATES = [1, 1.25, 1.5, 1.75, 2, 2.5, 0.75]
+/** Speeds worth one click. Everything between them is reachable on the slider. */
+const COMMON_RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3]
+export const MIN_RATE = 0.5
+export const MAX_RATE = 3
+/** Fine enough for 1.1 and 1.25 alike. */
+export const RATE_STEP = 0.05
 /** Seconds the skip buttons move, matching the convention every audiobook app uses. */
 const SKIP = 15
 
@@ -23,13 +31,13 @@ export function PlayerBar({
   title,
   page,
   pageCount,
+  unit = 'page',
   voiceLabel,
   onOpenVoices,
   onBookmark,
   bookmarked,
 }: Props) {
   const playing = player.status === 'playing'
-  const nextRate = () => RATES[(RATES.indexOf(player.rate) + 1) % RATES.length] ?? 1
 
   return (
     <div className="player">
@@ -51,7 +59,8 @@ export function PlayerBar({
           <span className="player__thumb" aria-hidden="true" />
           <span className="player__title">{title}</span>
           <span className="muted player__page">
-            p.{page} / {pageCount}
+            {unit === 'section' ? '§' : 'p.'}
+            {page} / {pageCount}
           </span>
         </div>
 
@@ -88,14 +97,7 @@ export function PlayerBar({
             <SkipIcon seconds={SKIP} />
           </button>
 
-          <button
-            type="button"
-            className="iconbutton iconbutton--text"
-            onClick={() => onRateChange(nextRate())}
-            title="Playback speed"
-          >
-            {player.rate}x
-          </button>
+          <SpeedControl rate={player.rate} onChange={onRateChange} />
         </div>
 
         <button type="button" className="voicepill" onClick={onOpenVoices} title="Choose a voice (V)">
@@ -108,6 +110,83 @@ export function PlayerBar({
         <p className="error" role="alert">
           {player.error}
         </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** 1 reads as "1", not "1.00"; 1.25 keeps both decimals. */
+export function formatRate(rate: number): string {
+  return `${Number(rate.toFixed(2))}`
+}
+
+/**
+ * Speed as a slider, because the useful range is finer than a handful of
+ * presets — but the presets are still one click away as marks under it.
+ */
+function SpeedControl({ rate, onChange }: { rate: number; onChange: (rate: number) => void }) {
+  const [open, setOpen] = useState(false)
+  const container = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!container.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div className="speed" ref={container}>
+      <button
+        type="button"
+        className="iconbutton iconbutton--text"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        title="Playback speed"
+      >
+        {formatRate(rate)}x
+      </button>
+
+      {open ? (
+        <div className="speed__panel" role="dialog" aria-label="Playback speed">
+          <div className="speed__value">{formatRate(rate)}×</div>
+          <input
+            type="range"
+            min={MIN_RATE}
+            max={MAX_RATE}
+            step={RATE_STEP}
+            value={rate}
+            list="speed-marks"
+            onChange={(event) => onChange(Number(event.target.value))}
+            aria-label="Playback speed"
+          />
+          <datalist id="speed-marks">
+            {COMMON_RATES.map((value) => (
+              <option key={value} value={value} />
+            ))}
+          </datalist>
+          <div className="speed__marks">
+            {COMMON_RATES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`speed__mark${Math.abs(value - rate) < 0.001 ? ' speed__mark--on' : ''}`}
+                onClick={() => onChange(value)}
+              >
+                {formatRate(value)}×
+              </button>
+            ))}
+          </div>
+        </div>
       ) : null}
     </div>
   )

@@ -58,7 +58,11 @@ struct ReaderView: View {
                 reader = created
             }
         }
-        .onDisappear { reader?.deactivate() }
+        .onDisappear {
+            reader?.deactivate()
+            // The shelf shows how far through each book you are.
+            model.refreshShelf()
+        }
         .sheet(isPresented: $showingChapters) {
             if let reader, let player = reader.player {
                 ChapterListView(

@@ -4,6 +4,7 @@ import App from './App'
 import './styles.css'
 import './styles/transcript.css'
 import './styles/library.css'
+import './styles/voices.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -82,7 +82,8 @@ public final class LibraryStore: @unchecked Sendable {
             title: book.title,
             author: book.author,
             pageCount: book.pageCount,
-            wordCount: book.wordCount
+            wordCount: book.wordCount,
+            chunkCount: book.chunks.count
         )
         var index = books().filter { $0.id != id }
         index.append(summary)

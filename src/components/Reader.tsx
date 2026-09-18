@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmarks } from './Bookmarks'
 import { ChapterList } from './ChapterList'
 import { PlayerBar } from './PlayerBar'
@@ -8,12 +8,15 @@ import { availableProviders } from '../lib/tts'
 import type { TtsVoice } from '../lib/tts'
 import { deleteBookmark, listBookmarks, saveBookmark } from '../lib/storage/db'
 import type { BookmarkRecord, BookRecord } from '../lib/storage/db'
+import { clearBookVoice, readBookVoice, writeBookVoice } from '../lib/storage/bookVoices'
+import { resolveVoice } from '../state/bookVoice'
 import { usePlayer } from '../state/usePlayer'
 import { useMediaSession, useWakeLock } from '../state/useMediaSession'
 
 export interface ReaderSettings {
   rate: number
   providerId: string
+  /** The voice for books that have none of their own; each book may override it. */
   voiceId: string | null
   /** Voice ids kept one click away in the player bar, in the order they were starred. */
   favouriteVoiceIds: string[]
@@ -50,22 +53,62 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
     void listBookmarks(book.id).then(setBookmarks)
   }, [book.id])
 
-  // Pick a sensible default voice the first time a provider's list arrives.
+  // The voice this book was last read in, null while it follows the default.
+  const [bookVoiceId, setBookVoiceId] = useState<string | null>(null)
+  // Bumped by any choice the reader makes, so a slow load cannot land on top of it.
+  const loadToken = useRef(0)
+
   useEffect(() => {
-    if (!voices.length) return
-    if (settings.voiceId && voices.some((voice) => voice.id === settings.voiceId)) return
-    const preferred =
-      voices.find((voice) => voice.default && voice.lang.startsWith(navigator.language.slice(0, 2))) ??
-      voices.find((voice) => voice.lang.startsWith(navigator.language.slice(0, 2))) ??
-      voices[0]
-    onSettingsChange({ voiceId: preferred.id })
-  }, [voices, settings.voiceId, onSettingsChange])
+    const token = ++loadToken.current
+    setBookVoiceId(null)
+    void readBookVoice(book.id).then((stored) => {
+      if (loadToken.current === token) setBookVoiceId(stored)
+    })
+  }, [book.id])
+
+  const resolved = useMemo(
+    () =>
+      resolveVoice({
+        bookVoiceId,
+        defaultVoiceId: settings.voiceId,
+        voices,
+        language: navigator.language,
+      }),
+    [bookVoiceId, settings.voiceId, voices],
+  )
+
+  // Seed the default the first time a provider's list arrives, and repair it when
+  // the engine stops offering whatever was saved.
+  useEffect(() => {
+    if (resolved.source !== 'auto' || !resolved.voiceId) return
+    onSettingsChange({ voiceId: resolved.voiceId })
+  }, [resolved, onSettingsChange])
+
+  const chooseVoice = useCallback(
+    (id: string) => {
+      loadToken.current += 1
+      setBookVoiceId(id)
+      void writeBookVoice(book.id, id)
+    },
+    [book.id],
+  )
+
+  // Hands the book back to the default, rather than pinning today's default to it.
+  const followDefaultVoice = useCallback(() => {
+    loadToken.current += 1
+    setBookVoiceId(null)
+    void clearBookVoice(book.id)
+  }, [book.id])
+
+  const makeVoiceDefault = useCallback(() => {
+    if (resolved.voiceId) onSettingsChange({ voiceId: resolved.voiceId })
+  }, [resolved.voiceId, onSettingsChange])
 
   const player = usePlayer({
     bookId: book.id,
     chunks: book.chunks,
     provider,
-    voiceId: settings.voiceId,
+    voiceId: resolved.voiceId,
     initialIndex,
     initialRate: settings.rate,
     onIndexChange: onProgress,
@@ -173,14 +216,31 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
         case 'b':
           toggleBookmark()
           break
+        case '[':
+          onSettingsChange({ rate: Math.max(0.5, Number((settings.rate - 0.05).toFixed(2))) })
+          break
+        case ']':
+          onSettingsChange({ rate: Math.min(3, Number((settings.rate + 0.05).toFixed(2))) })
+          break
         default:
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toggle, skip, seekToSeconds, player.elapsed, voicesOpen, openVoices, toggleBookmark])
+  }, [
+    toggle,
+    skip,
+    seekToSeconds,
+    player.elapsed,
+    voicesOpen,
+    openVoices,
+    toggleBookmark,
+    onSettingsChange,
+    settings.rate,
+  ])
 
-  const voiceLabel = voices.find((voice) => voice.id === settings.voiceId)?.name ?? 'System voice'
+  const voiceLabel = voices.find((voice) => voice.id === resolved.voiceId)?.name ?? 'System voice'
+  const defaultVoiceLabel = voices.find((voice) => voice.id === settings.voiceId)?.name ?? null
 
   return (
     <div className="reader">
@@ -231,6 +291,7 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
           title={book.title}
           page={currentChunk?.page ?? 1}
           pageCount={book.pageCount}
+          unit={book.format === 'epub' ? 'section' : 'page'}
           voiceLabel={voiceLabel}
           onOpenVoices={openVoices}
           onBookmark={toggleBookmark}
@@ -242,11 +303,17 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
         <VoicePicker
           provider={provider}
           voices={voices}
-          voiceId={settings.voiceId}
+          voiceId={resolved.voiceId}
+          defaultVoiceId={settings.voiceId}
+          defaultVoiceLabel={defaultVoiceLabel}
+          bookTitle={book.title}
+          followsDefault={resolved.source !== 'book'}
           favourites={settings.favouriteVoiceIds}
           sample={previewSample(currentChunk?.text)}
           rate={settings.rate}
-          onVoiceChange={(id) => onSettingsChange({ voiceId: id })}
+          onVoiceChange={chooseVoice}
+          onMakeDefault={makeVoiceDefault}
+          onFollowDefault={followDefaultVoice}
           onFavouritesChange={(favouriteVoiceIds) => onSettingsChange({ favouriteVoiceIds })}
           onClose={closeVoices}
         />

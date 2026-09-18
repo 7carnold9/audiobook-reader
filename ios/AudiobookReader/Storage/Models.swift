@@ -8,6 +8,8 @@ public struct BookSummary: Codable, Identifiable, Hashable, Sendable {
     public var author: String?
     public var pageCount: Int
     public var wordCount: Int
+    /// Kept here so the shelf can show progress without decoding the book.
+    public var chunkCount: Int
     public var addedAt: Date
 
     public init(
@@ -16,6 +18,7 @@ public struct BookSummary: Codable, Identifiable, Hashable, Sendable {
         author: String?,
         pageCount: Int,
         wordCount: Int,
+        chunkCount: Int,
         addedAt: Date = Date()
     ) {
         self.id = id
@@ -23,6 +26,7 @@ public struct BookSummary: Codable, Identifiable, Hashable, Sendable {
         self.author = author
         self.pageCount = pageCount
         self.wordCount = wordCount
+        self.chunkCount = chunkCount
         self.addedAt = addedAt
     }
 }

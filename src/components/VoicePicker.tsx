@@ -5,12 +5,24 @@ import type { SpeechHandle, TtsProvider, TtsVoice } from '../lib/tts'
 interface Props {
   provider: TtsProvider | undefined
   voices: TtsVoice[]
+  /** The voice this book is read in, whether its own or the inherited default. */
   voiceId: string | null
+  /** The voice used by books that have none of their own. */
+  defaultVoiceId: string | null
+  defaultVoiceLabel: string | null
+  bookTitle: string
+  /** True while this book has no voice of its own and so follows the default. */
+  followsDefault: boolean
   favourites: string[]
   /** Text to read when previewing, normally the passage currently on screen. */
   sample: string
   rate: number
+  /** Sets the voice for this book alone. */
   onVoiceChange: (id: string) => void
+  /** Also makes the chosen voice the default for books that have none. */
+  onMakeDefault: () => void
+  /** Drops this book's own voice, so it follows the default again. */
+  onFollowDefault: () => void
   onFavouritesChange: (favourites: string[]) => void
   onClose: () => void
 }
@@ -18,16 +30,23 @@ interface Props {
 /**
  * Browse every voice the engine offers, hear it on the passage you are reading,
  * and star the few worth keeping. The starred ones become buttons in the player
- * bar so switching later takes one click.
+ * bar so switching later takes one click. A choice here belongs to this book;
+ * the scope band at the top says so, and offers the two ways out of it.
  */
 export function VoicePicker({
   provider,
   voices,
   voiceId,
+  defaultVoiceId,
+  defaultVoiceLabel,
+  bookTitle,
+  followsDefault,
   favourites,
   sample,
   rate,
   onVoiceChange,
+  onMakeDefault,
+  onFollowDefault,
   onFavouritesChange,
   onClose,
 }: Props) {
@@ -76,6 +95,8 @@ export function VoicePicker({
 
   const listed = searchVoices(orderVoices(voices, orderedBy, navigator.language), query)
   const full = favourites.length >= MAX_FAVOURITES
+  const currentLabel = voices.find((voice) => voice.id === voiceId)?.name ?? 'System voice'
+  const isDefault = voiceId !== null && voiceId === defaultVoiceId
 
   return (
     <div className="drawer" role="dialog" aria-modal="true" aria-label="Voices" onClick={onClose}>
@@ -101,6 +122,41 @@ export function VoicePicker({
           />
         </header>
 
+        <div className="voicescope">
+          <p className="voicescope__now">
+            <span className={`voicescope__badge${followsDefault ? '' : ' voicescope__badge--own'}`}>
+              {followsDefault ? 'Default voice' : 'This book'}
+            </span>
+            <span className="voicescope__voice">{currentLabel}</span>
+          </p>
+          <p className="voicescope__hint">
+            {followsDefault
+              ? `“${bookTitle}” has no voice of its own yet. Picking one below sets it for this book.`
+              : `Picked for “${bookTitle}”. Other books keep the voice they were last read in.`}
+          </p>
+          <div className="voicescope__actions">
+            <button
+              type="button"
+              className="button button--ghost voicescope__button"
+              onClick={onMakeDefault}
+              disabled={isDefault || !voiceId}
+            >
+              {isDefault
+                ? '✓ Already the default for books with no voice of their own'
+                : 'Also make it the default for books with no voice of their own'}
+            </button>
+            {followsDefault ? null : (
+              <button
+                type="button"
+                className="button button--ghost voicescope__button"
+                onClick={onFollowDefault}
+              >
+                Follow the default instead{defaultVoiceLabel ? ` (${defaultVoiceLabel})` : ''}
+              </button>
+            )}
+          </div>
+        </div>
+
         <ul className="voices">
           {listed.map((voice) => {
             const starred = favourites.includes(voice.id)
@@ -125,6 +181,7 @@ export function VoicePicker({
                 <button type="button" className="voices__name" onClick={() => onVoiceChange(voice.id)}>
                   <span>{voice.name}</span>
                   <span className="muted">{voice.lang}</span>
+                  {voice.id === defaultVoiceId ? <span className="voicetag">default</span> : null}
                 </button>
                 <button type="button" className="button button--ghost voices__preview" onClick={() => preview(voice)}>
                   {previewing === voice.id ? '■ Stop' : '▶ Preview'}

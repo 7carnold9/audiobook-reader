@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countWords, usableAuthor, usableTitle } from './ingest'
+import { countWords, usableAuthor, usableTitle } from '../bookMetadata'
 
 describe('usableTitle', () => {
   it('keeps a real title', () => {

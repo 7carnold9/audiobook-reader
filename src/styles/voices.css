@@ -1,0 +1,76 @@
+/* Voice drawer: per-book voice scope controls. */
+
+/* A band under the drawer header, so the question "did I just change this book
+   or all of them?" is answered before the list is touched. */
+.voicescope {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.voicescope__now {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  min-width: 0;
+}
+.voicescope__badge {
+  flex: none;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  background: var(--surface-3);
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.55rem;
+}
+/* The book's own voice is the louder of the two states: it is the one that
+   differs from what every other book does. */
+.voicescope__badge--own {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+}
+.voicescope__voice {
+  font-size: 0.95rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voicescope__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.voicescope__actions {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: start;
+}
+.voicescope__button {
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.7rem;
+  text-align: left;
+}
+.voicescope__button:disabled {
+  color: var(--muted);
+  cursor: default;
+  background: transparent;
+}
+
+/* Marks the row that books with no voice of their own fall back to. */
+.voicetag {
+  flex: none;
+  border-radius: var(--pill);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  padding: 0.05rem 0.45rem;
+}
