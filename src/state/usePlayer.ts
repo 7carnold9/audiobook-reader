@@ -109,7 +109,7 @@ export function usePlayer({
     setError(null)
     // A rate or voice change while paused restarts the chunk; keep it paused.
     if (pausedRef.current) narration.pause()
-    narration.start(indexRef.current, tokenRef.current)
+    narration.begin(indexRef.current, tokenRef.current)
     // The starting word applies to this run only; a later restart (a speed or
     // voice change) begins at the top of whatever chunk is then current.
     tokenRef.current = 0

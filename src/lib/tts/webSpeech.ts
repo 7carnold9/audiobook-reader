@@ -44,6 +44,10 @@ export const webSpeechProvider: TtsProvider = {
     }
 
     let finished = false
+    // Chromium ignores pause() for an utterance that has not started speaking,
+    // and the keep-alive below would resume anything we did manage to pause,
+    // so the intent is tracked here rather than read back off the engine.
+    let wantPaused = false
     const finish = (error?: Error) => {
       if (finished) return
       finished = true
@@ -51,7 +55,11 @@ export const webSpeechProvider: TtsProvider = {
       onEnd(error)
     }
 
-    utterance.onstart = () => onStart?.()
+    utterance.onstart = () => {
+      onStart?.()
+      // Apply a pause that arrived before this utterance had started.
+      if (wantPaused) synthesis.pause()
+    }
     utterance.onboundary = (event) => {
       if (event.name === 'word' || event.name === undefined) onBoundary?.(event.charIndex)
     }
@@ -70,6 +78,7 @@ export const webSpeechProvider: TtsProvider = {
     // click audibly, so it is only armed where the bug exists.
     const keepAlive = needsKeepAlive()
       ? setInterval(() => {
+          if (wantPaused) return
           if (synthesis.speaking && !synthesis.paused) {
             synthesis.pause()
             synthesis.resume()
@@ -85,8 +94,14 @@ export const webSpeechProvider: TtsProvider = {
         if (keepAlive !== undefined) clearInterval(keepAlive)
         synthesis.cancel()
       },
-      pause: () => synthesis.pause(),
-      resume: () => synthesis.resume(),
+      pause: () => {
+        wantPaused = true
+        synthesis.pause()
+      },
+      resume: () => {
+        wantPaused = false
+        synthesis.resume()
+      },
     }
   },
 }
