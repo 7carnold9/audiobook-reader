@@ -21,6 +21,7 @@ export const webSpeechProvider: TtsProvider = {
       name: voice.name,
       lang: voice.lang,
       default: voice.default,
+      localService: voice.localService,
     }))
   },
 

@@ -347,3 +347,16 @@ h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.09em; colo
 }
 .speed__mark:hover { color: var(--text); background: var(--surface-2); }
 .speed__mark--on { background: var(--accent); color: var(--accent-ink); }
+
+.linkbutton {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkbutton:hover { color: var(--focus); }

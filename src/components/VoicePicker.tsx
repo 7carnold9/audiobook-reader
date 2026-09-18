@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MAX_FAVOURITES, orderVoices, searchVoices, toggleFavourite } from '../lib/tts'
+import { BEST_VOICE_COUNT, MAX_FAVOURITES, bestVoices, orderVoices, searchVoices, toggleFavourite } from '../lib/tts'
 import type { SpeechHandle, TtsProvider, TtsVoice } from '../lib/tts'
 
 interface Props {
@@ -55,6 +55,8 @@ export function VoicePicker({
   // starred would move the row out from under the cursor.
   const [orderedBy] = useState(favourites)
   const [previewing, setPreviewing] = useState<string | null>(null)
+  /** The full list is a hundred voices in languages nobody here reads. */
+  const [showAll, setShowAll] = useState(false)
   const handleRef = useRef<SpeechHandle | null>(null)
 
   const stopPreview = () => {
@@ -93,7 +95,10 @@ export function VoicePicker({
     })
   }
 
-  const listed = searchVoices(orderVoices(voices, orderedBy, navigator.language), query)
+  // Searching looks through everything; browsing shows only the good ones.
+  const pool = showAll || query.trim() ? voices : bestVoices(voices, navigator.language)
+  const listed = searchVoices(orderVoices(pool, orderedBy, navigator.language), query)
+  const hidden = voices.length - pool.length
   const full = favourites.length >= MAX_FAVOURITES
   const currentLabel = voices.find((voice) => voice.id === voiceId)?.name ?? 'System voice'
   const isDefault = voiceId !== null && voiceId === defaultVoiceId
@@ -109,8 +114,8 @@ export function VoicePicker({
             </button>
           </div>
           <p className="muted">
-            Star up to {MAX_FAVOURITES} to keep them one click away. Previews read the passage
-            you are on.
+            The {BEST_VOICE_COUNT} best voices your system offers. Star up to {MAX_FAVOURITES} to
+            keep them one click away; previews read the passage you are on.
           </p>
           <input
             type="search"
@@ -195,6 +200,22 @@ export function VoicePicker({
         <footer className="drawer__footer">
           <span className="muted">
             {favourites.length} of {MAX_FAVOURITES} starred
+            {hidden > 0 && !query.trim() ? (
+              <>
+                {' · '}
+                <button type="button" className="linkbutton" onClick={() => setShowAll(true)}>
+                  show {hidden} more
+                </button>
+              </>
+            ) : null}
+            {showAll && !query.trim() ? (
+              <>
+                {' · '}
+                <button type="button" className="linkbutton" onClick={() => setShowAll(false)}>
+                  show the best {BEST_VOICE_COUNT}
+                </button>
+              </>
+            ) : null}
           </span>
           <button type="button" className="button button--primary" onClick={onClose}>
             Done

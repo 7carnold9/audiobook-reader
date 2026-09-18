@@ -4,6 +4,8 @@ export interface TtsVoice {
   lang: string
   /** True for voices the platform considers the default for their language. */
   default?: boolean
+  /** False for voices synthesized over the network, which are usually the better ones. */
+  localService?: boolean
 }
 
 export interface SpeakOptions {
