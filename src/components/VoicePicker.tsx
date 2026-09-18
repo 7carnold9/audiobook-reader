@@ -78,17 +78,22 @@ export function VoicePicker({
   const full = favourites.length >= MAX_FAVOURITES
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="Voices" onClick={onClose}>
-      <div className="modal__panel" onClick={(event) => event.stopPropagation()}>
-        <header className="modal__header">
-          <h2>Voices</h2>
+    <div className="drawer" role="dialog" aria-modal="true" aria-label="Voices" onClick={onClose}>
+      <div className="drawer__panel" onClick={(event) => event.stopPropagation()}>
+        <header className="drawer__header">
+          <div className="drawer__title">
+            <h2>Voices</h2>
+            <button type="button" className="iconbutton" onClick={onClose} aria-label="Close voices">
+              ×
+            </button>
+          </div>
           <p className="muted">
             Star up to {MAX_FAVOURITES} to keep them one click away. Previews read the passage
             you are on.
           </p>
           <input
             type="search"
-            className="modal__search"
+            className="drawer__search"
             placeholder="Search by name or language…"
             value={query}
             autoFocus
@@ -130,7 +135,7 @@ export function VoicePicker({
           {listed.length === 0 ? <li className="muted voices__empty">No voice matches that.</li> : null}
         </ul>
 
-        <footer className="modal__footer">
+        <footer className="drawer__footer">
           <span className="muted">
             {favourites.length} of {MAX_FAVOURITES} starred
           </span>

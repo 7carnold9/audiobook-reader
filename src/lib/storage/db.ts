@@ -19,6 +19,18 @@ export interface ProgressRecord {
   updatedAt: number
 }
 
+export interface BookmarkRecord {
+  id: string
+  bookId: string
+  chunkIndex: number
+  /** Word within the chunk, so a bookmark returns to the exact spot. */
+  tokenIndex: number
+  page: number
+  /** A few words of the passage, so the list is readable. */
+  excerpt: string
+  createdAt: number
+}
+
 export interface AudioRecord {
   key: string
   blob: Blob
@@ -26,7 +38,7 @@ export interface AudioRecord {
 }
 
 const DB_NAME = 'audiobook-reader'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export const STORES = {
   books: 'books',
@@ -34,6 +46,7 @@ export const STORES = {
   progress: 'progress',
   audio: 'audio',
   settings: 'settings',
+  bookmarks: 'bookmarks',
 } as const
 
 let dbPromise: Promise<IDBDatabase> | null = null
@@ -51,6 +64,10 @@ export function openDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORES.audio)) db.createObjectStore(STORES.audio, { keyPath: 'key' })
       if (!db.objectStoreNames.contains(STORES.settings)) db.createObjectStore(STORES.settings)
+      if (!db.objectStoreNames.contains(STORES.bookmarks)) {
+        const bookmarks = db.createObjectStore(STORES.bookmarks, { keyPath: 'id' })
+        bookmarks.createIndex('bookId', 'bookId')
+      }
     }
     request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(request.error ?? new Error('Could not open the local database'))
@@ -98,6 +115,24 @@ export async function deleteBook(id: string): Promise<void> {
   await idb.delete(STORES.files, id)
   await idb.delete(STORES.progress, id)
   await deleteAudioForBook(id)
+  for (const bookmark of await listBookmarks(id)) {
+    await idb.delete(STORES.bookmarks, bookmark.id)
+  }
+}
+
+export async function listBookmarks(bookId: string): Promise<BookmarkRecord[]> {
+  const all = await idb.getAll<BookmarkRecord>(STORES.bookmarks)
+  return all
+    .filter((bookmark) => bookmark.bookId === bookId)
+    .sort((a, b) => a.chunkIndex - b.chunkIndex || a.tokenIndex - b.tokenIndex)
+}
+
+export function saveBookmark(bookmark: BookmarkRecord): Promise<IDBValidKey> {
+  return idb.put(STORES.bookmarks, bookmark)
+}
+
+export function deleteBookmark(id: string): Promise<undefined> {
+  return idb.delete(STORES.bookmarks, id)
 }
 
 export function getBook(id: string): Promise<BookRecord | undefined> {

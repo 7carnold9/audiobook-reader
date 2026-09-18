@@ -1,0 +1,402 @@
+/* Library: shelf, filters and book rows. */
+
+/* The shelf is meant to feel mostly empty, so spacing here is deliberate and
+   generous rather than something to tighten up later. */
+.library {
+  padding: 2.5rem 0 4rem;
+}
+
+.library__heading {
+  margin: 0;
+  font-size: clamp(2rem, 7vw, 2.8rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.library__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 1.75rem 0 2.5rem;
+}
+
+.library__scopes,
+.library__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* One pill shape for every control in the bar. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  padding: 0.45rem 0.95rem;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pill:hover { color: var(--text); }
+.pill[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.library__hidden-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.library__search { min-width: 0; }
+.library__search-input {
+  cursor: text;
+  color: var(--text);
+  width: min(15rem, 46vw);
+  padding: 0.45rem 0.95rem;
+}
+.library__search-input::placeholder { color: var(--muted); }
+.library__search-input::-webkit-search-cancel-button { filter: invert(1); opacity: 0.5; }
+
+/* The select fills the pill and stays the real control, so the pill only has to
+   supply the shape and the caret. */
+.library__sort { position: relative; padding-right: 1.9rem; }
+.library__sort-label { color: var(--muted); }
+.library__sort-select {
+  appearance: none;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0;
+  cursor: pointer;
+}
+.library__sort-select option { background: var(--surface-2); color: var(--text); }
+.library__caret {
+  position: absolute;
+  right: 0.85rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  pointer-events: none;
+}
+
+.library__empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 3rem 0;
+}
+
+.library__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.library__add { margin-top: 3rem; }
+
+/* Book row ---------------------------------------------------------------- */
+.book {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  grid-template-areas: 'body cover';
+  gap: 2.5rem;
+  align-items: center;
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--line);
+}
+.book:first-child { border-top: 0; padding-top: 0.5rem; }
+
+.book__body { grid-area: body; min-width: 0; }
+
+.book__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 3.5vw, 1.5rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.book__author {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.book__status {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 1.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ring { flex: none; transform: rotate(-90deg); }
+.ring__track { stroke: var(--surface-3); }
+.ring__value { stroke: var(--text); transition: stroke-dashoffset 0.2s ease; }
+
+.book__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.4rem;
+}
+
+.book__play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 0;
+  border-radius: var(--pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  padding: 0.6rem 1.3rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.book__play:hover { opacity: 0.85; }
+
+/* Overflow menu ----------------------------------------------------------- */
+.menu { position: relative; }
+
+.menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.menu__trigger:hover { background: var(--surface-3); }
+.menu__trigger span { display: block; margin-top: -0.45em; }
+
+.menu__popup {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 20;
+  min-width: 12rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.menu__item {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: calc(var(--radius) - 6px);
+  background: none;
+  color: var(--text);
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  font: inherit;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.menu__item:hover { background: var(--surface-3); }
+.menu__item--danger:hover { color: var(--danger); }
+
+/* Cover ------------------------------------------------------------------- */
+/* No PDF carries a usable cover image, so the card is typographic: the title on
+   a light board, in the spirit of a printed jacket. */
+.book__cover {
+  grid-area: cover;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 230px;
+  max-width: 100%;
+  aspect-ratio: 23 / 35;
+  padding: 1.4rem 1.2rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--accent);
+  color: var(--accent-ink);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease;
+}
+.book__cover:hover { transform: translateY(-2px); }
+
+.book__cover-title {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: clamp(1rem, 2.4vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.book__cover-author {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.65;
+  overflow-wrap: anywhere;
+}
+
+/* Uploader ---------------------------------------------------------------- */
+.uploader {
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.25rem 1.4rem;
+}
+.uploader--empty {
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+  background: none;
+}
+.uploader--active { border-color: var(--accent); background: var(--surface-2); }
+
+.uploader__pitch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.uploader--empty .uploader__pitch {
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.25rem;
+}
+
+.uploader__lead {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.uploader--empty .uploader__lead { font-size: 1.4rem; }
+
+.uploader__note {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.uploader__button {
+  border: 1px solid var(--line);
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  color: var(--text);
+  padding: 0.6rem 1.3rem;
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.uploader--empty .uploader__button {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+  font-weight: 600;
+}
+.uploader__button:hover { opacity: 0.85; }
+
+.uploader__stage { margin: 0 0 0.6rem; font-size: 0.9rem; }
+.uploader__bar {
+  height: 6px;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.uploader__bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+.uploader--busy { text-align: left; }
+
+.uploader__error {
+  margin: 0.9rem 0 0;
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+/* Focus ------------------------------------------------------------------- */
+.library :focus-visible,
+.uploader :focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* The ring belongs on the pill, not on the bare select inside it. */
+.library__sort .library__sort-select:focus-visible { outline: none; }
+.library__sort:has(.library__sort-select:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Phones ------------------------------------------------------------------ */
+@media (max-width: 680px) {
+  .library { padding-top: 1.75rem; }
+  .library__controls { gap: 0.6rem; margin: 1.25rem 0 1.75rem; }
+  .library__tools { width: 100%; }
+  .library__search { flex: 1 1 8rem; }
+  .library__search-input { width: 100%; }
+
+  .book {
+    grid-template-columns: 108px minmax(0, 1fr);
+    grid-template-areas: 'cover body';
+    gap: 1rem;
+    align-items: start;
+    padding: 1.75rem 0;
+  }
+  .book__cover {
+    width: 108px;
+    padding: 0.8rem 0.7rem;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+  }
+  .book__cover-author { display: none; }
+  .book__status { margin-top: 0.8rem; }
+  .book__actions { margin-top: 1rem; }
+  .book__play { padding: 0.55rem 1rem; }
+  .menu__trigger { width: 2.4rem; height: 2.4rem; }
+  /* Right-align the popup so it cannot push past the edge of a narrow screen. */
+  .menu__popup { left: auto; right: 0; }
+
+  .uploader--empty { padding: 2.5rem 1.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book__cover,
+  .ring__value,
+  .uploader__bar-fill {
+    transition: none;
+  }
+  .book__cover:hover { transform: none; }
+}

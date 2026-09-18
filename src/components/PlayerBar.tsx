@@ -1,41 +1,35 @@
-import { shortlist } from '../lib/tts'
 import type { Player } from '../state/usePlayer'
-import type { TtsProvider, TtsVoice } from '../lib/tts'
 
 interface Props {
   player: Player
   onRateChange: (rate: number) => void
+  title: string
   page: number
   pageCount: number
-  providers: TtsProvider[]
-  providerId: string
-  onProviderChange: (id: string) => void
-  voices: TtsVoice[]
-  voiceId: string | null
-  favourites: string[]
-  onVoiceChange: (id: string) => void
+  voiceLabel: string
   onOpenVoices: () => void
+  onBookmark: () => void
+  /** True when a bookmark already sits at the current spot. */
+  bookmarked: boolean
 }
 
-const RATES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5]
+const RATES = [1, 1.25, 1.5, 1.75, 2, 2.5, 0.75]
+/** Seconds the skip buttons move, matching the convention every audiobook app uses. */
+const SKIP = 15
 
 export function PlayerBar({
   player,
   onRateChange,
+  title,
   page,
   pageCount,
-  providers,
-  providerId,
-  onProviderChange,
-  voices,
-  voiceId,
-  favourites,
-  onVoiceChange,
+  voiceLabel,
   onOpenVoices,
+  onBookmark,
+  bookmarked,
 }: Props) {
   const playing = player.status === 'playing'
-  const starred = shortlist(voices, favourites)
-  const current = voices.find((voice) => voice.id === voiceId)
+  const nextRate = () => RATES[(RATES.indexOf(player.rate) + 1) % RATES.length] ?? 1
 
   return (
     <div className="player">
@@ -49,88 +43,65 @@ export function PlayerBar({
           onChange={(event) => player.seekToSeconds(Number(event.target.value))}
           aria-label="Position in book"
         />
-        <span className="player__time">-{formatTime(Math.max(0, player.duration - player.elapsed))}</span>
+        <span className="player__time">{formatTime(Math.max(0, player.duration - player.elapsed))}</span>
       </div>
 
       <div className="player__row">
-        <div className="player__transport">
-          <button type="button" className="button button--ghost" onClick={() => player.skip(-10)} title="Back 10 chunks">
-            ⏮
-          </button>
-          <button type="button" className="button button--ghost" onClick={() => player.skip(-1)} title="Previous chunk">
-            ↺
-          </button>
-          <button type="button" className="button button--primary" onClick={player.toggle} title="Play / pause (space)">
-            {playing ? '❚❚' : '▶'}
-          </button>
-          <button type="button" className="button button--ghost" onClick={() => player.skip(1)} title="Next chunk">
-            ↻
-          </button>
-          <button type="button" className="button button--ghost" onClick={() => player.skip(10)} title="Forward 10 chunks">
-            ⏭
-          </button>
-        </div>
-
-        <div className="player__settings">
-          <label>
-            <span className="muted">Speed</span>
-            <select value={player.rate} onChange={(event) => onRateChange(Number(event.target.value))}>
-              {RATES.map((rate) => (
-                <option key={rate} value={rate}>
-                  {rate}×
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {providers.length > 1 ? (
-            <label>
-              <span className="muted">Engine</span>
-              <select value={providerId} onChange={(event) => onProviderChange(event.target.value)}>
-                {providers.map((provider) => (
-                  <option key={provider.id} value={provider.id}>
-                    {provider.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-
-          {voices.length ? (
-            <div className="voicebar">
-              <span className="muted">Voice</span>
-              {starred.length ? (
-                starred.map((voice) => (
-                  <button
-                    key={voice.id}
-                    type="button"
-                    className={`chip${voice.id === voiceId ? ' chip--on' : ''}`}
-                    title={`${voice.name} (${voice.lang})`}
-                    onClick={() => onVoiceChange(voice.id)}
-                  >
-                    {voice.name}
-                  </button>
-                ))
-              ) : (
-                <span className="chip chip--on" title={current ? `${current.name} (${current.lang})` : undefined}>
-                  {current?.name ?? 'System default'}
-                </span>
-              )}
-              <button
-                type="button"
-                className="button button--ghost voicebar__more"
-                onClick={onOpenVoices}
-                title="Browse and shortlist voices (v)"
-              >
-                {starred.length ? '⋯' : 'Pick voices'}
-              </button>
-            </div>
-          ) : null}
-
+        <div className="player__now">
+          <span className="player__thumb" aria-hidden="true" />
+          <span className="player__title">{title}</span>
           <span className="muted player__page">
-            page {page} / {pageCount}
+            p.{page} / {pageCount}
           </span>
         </div>
+
+        <div className="player__transport">
+          <button
+            type="button"
+            className={`iconbutton${bookmarked ? ' iconbutton--on' : ''}`}
+            onClick={onBookmark}
+            title={bookmarked ? 'Remove the bookmark here (B)' : 'Bookmark this spot (B)'}
+            aria-pressed={bookmarked}
+          >
+            <BookmarkIcon filled={bookmarked} />
+          </button>
+
+          <button
+            type="button"
+            className="iconbutton"
+            onClick={() => player.seekToSeconds(player.elapsed - SKIP)}
+            title={`Back ${SKIP} seconds`}
+          >
+            <SkipIcon seconds={SKIP} back />
+          </button>
+
+          <button type="button" className="playbutton" onClick={player.toggle} title="Play / pause (space)">
+            {playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+
+          <button
+            type="button"
+            className="iconbutton"
+            onClick={() => player.seekToSeconds(player.elapsed + SKIP)}
+            title={`Forward ${SKIP} seconds`}
+          >
+            <SkipIcon seconds={SKIP} />
+          </button>
+
+          <button
+            type="button"
+            className="iconbutton iconbutton--text"
+            onClick={() => onRateChange(nextRate())}
+            title="Playback speed"
+          >
+            {player.rate}x
+          </button>
+        </div>
+
+        <button type="button" className="voicepill" onClick={onOpenVoices} title="Choose a voice (V)">
+          <span className="voicepill__dot" aria-hidden="true" />
+          Read by <strong>{voiceLabel}</strong>
+        </button>
       </div>
 
       {player.error ? (
@@ -150,4 +121,63 @@ export function formatTime(seconds: number): string {
   const secs = total % 60
   const pad = (value: number) => String(value).padStart(2, '0')
   return hours ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`
+}
+
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M8 5.5v13l11-6.5z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path d="M7 5h3.2v14H7zM13.8 5H17v14h-3.2z" fill="currentColor" />
+    </svg>
+  )
+}
+
+function BookmarkIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path
+        d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"
+        fill={filled ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+/** The circular-arrow skip glyph with the seconds written inside it. */
+function SkipIcon({ seconds, back = false }: { seconds: number; back?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <g transform={back ? 'scale(-1,1) translate(-24,0)' : undefined}>
+        <path
+          d="M12 5.5a7 7 0 1 1-6.6 4.7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <path d="M12 2.5v6l4-3z" fill="currentColor" />
+      </g>
+      <text
+        x="12"
+        y="16"
+        textAnchor="middle"
+        fontSize="8"
+        fontWeight="600"
+        fill="currentColor"
+        fontFamily="inherit"
+      >
+        {seconds}
+      </text>
+    </svg>
+  )
 }

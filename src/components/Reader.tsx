@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Bookmarks } from './Bookmarks'
 import { ChapterList } from './ChapterList'
-import { VoicePicker } from './VoicePicker'
 import { PlayerBar } from './PlayerBar'
 import { Transcript } from './Transcript'
+import { VoicePicker } from './VoicePicker'
 import { availableProviders } from '../lib/tts'
 import type { TtsVoice } from '../lib/tts'
+import { deleteBookmark, listBookmarks, saveBookmark } from '../lib/storage/db'
+import type { BookmarkRecord, BookRecord } from '../lib/storage/db'
 import { usePlayer } from '../state/usePlayer'
 import { useMediaSession, useWakeLock } from '../state/useMediaSession'
-import type { BookRecord } from '../lib/storage/db'
 
 export interface ReaderSettings {
   rate: number
@@ -30,6 +32,9 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
   const providers = useMemo(() => availableProviders(), [])
   const provider = providers.find((item) => item.id === settings.providerId) ?? providers[0]
   const [voices, setVoices] = useState<TtsVoice[]>([])
+  const [bookmarks, setBookmarks] = useState<BookmarkRecord[]>([])
+  const [voicesOpen, setVoicesOpen] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -40,6 +45,10 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
       active = false
     }
   }, [provider])
+
+  useEffect(() => {
+    void listBookmarks(book.id).then(setBookmarks)
+  }, [book.id])
 
   // Pick a sensible default voice the first time a provider's list arrives.
   useEffect(() => {
@@ -62,30 +71,11 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
     onIndexChange: onProgress,
   })
 
-  const { setRate } = player
+  const { setRate, toggle, skip, startAt, seekToSeconds } = player
   useEffect(() => {
     setRate(settings.rate)
   }, [settings.rate, setRate])
 
-  // Previewing a voice cancels whatever the engine is saying, so narration is
-  // stopped while the picker is open and picked back up on close.
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const resumeAfterPicker = useRef(false)
-  const { stop: stopPlayback, play: startPlayback } = player
-
-  const openPicker = useCallback(() => {
-    resumeAfterPicker.current = player.status === 'playing'
-    stopPlayback()
-    setPickerOpen(true)
-  }, [player.status, stopPlayback])
-
-  const closePicker = useCallback(() => {
-    setPickerOpen(false)
-    if (resumeAfterPicker.current) startPlayback()
-    resumeAfterPicker.current = false
-  }, [startPlayback])
-
-  const { toggle, skip } = player
   const next = useCallback(() => skip(1), [skip])
   const previous = useCallback(() => skip(-1), [skip])
 
@@ -100,60 +90,127 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
   })
   useWakeLock(player.status === 'playing')
 
+  // Previewing a voice cancels whatever the engine is saying, so narration is
+  // stopped while the drawer is open and picked back up on close.
+  const [resumeAfterVoices, setResumeAfterVoices] = useState(false)
+  const { stop: stopPlayback, play: startPlayback } = player
+
+  const openVoices = useCallback(() => {
+    setResumeAfterVoices(player.status === 'playing')
+    stopPlayback()
+    setVoicesOpen(true)
+  }, [player.status, stopPlayback])
+
+  const closeVoices = useCallback(() => {
+    setVoicesOpen(false)
+    if (resumeAfterVoices) startPlayback()
+    setResumeAfterVoices(false)
+  }, [resumeAfterVoices, startPlayback])
+
+  const currentChunk = book.chunks[Math.min(player.index, book.chunks.length - 1)]
+  const currentToken = Math.max(0, player.tokenIndex)
+
+  const bookmarkHere = bookmarks.find(
+    (bookmark) =>
+      bookmark.chunkIndex === player.index && Math.abs(bookmark.tokenIndex - currentToken) <= 8,
+  )
+
+  const toggleBookmark = useCallback(() => {
+    if (bookmarkHere) {
+      void deleteBookmark(bookmarkHere.id)
+      setBookmarks((current) => current.filter((item) => item.id !== bookmarkHere.id))
+      return
+    }
+    if (!currentChunk) return
+    const words = currentChunk.text.split(/\s+/).slice(currentToken, currentToken + 9)
+    const bookmark: BookmarkRecord = {
+      id: crypto.randomUUID(),
+      bookId: book.id,
+      chunkIndex: player.index,
+      tokenIndex: currentToken,
+      page: currentChunk.page,
+      excerpt: words.join(' ') || currentChunk.text.slice(0, 60),
+      createdAt: Date.now(),
+    }
+    void saveBookmark(bookmark)
+    setBookmarks((current) =>
+      [...current, bookmark].sort(
+        (a, b) => a.chunkIndex - b.chunkIndex || a.tokenIndex - b.tokenIndex,
+      ),
+    )
+  }, [bookmarkHere, book.id, currentChunk, currentToken, player.index])
+
+  const removeBookmark = useCallback((id: string) => {
+    void deleteBookmark(id)
+    setBookmarks((current) => current.filter((item) => item.id !== id))
+  }, [])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null
       if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return
-      if (pickerOpen) return
+      if (voicesOpen) return
       switch (event.key) {
-        case 'v':
-          openPicker()
-          break
         case ' ':
           event.preventDefault()
           toggle()
           break
         case 'ArrowRight':
-          skip(1)
+          seekToSeconds(player.elapsed + 15)
           break
         case 'ArrowLeft':
-          skip(-1)
+          seekToSeconds(player.elapsed - 15)
           break
         case 'l':
-          skip(10)
+          skip(1)
           break
         case 'j':
-          skip(-10)
+          skip(-1)
+          break
+        case 'v':
+          openVoices()
+          break
+        case 'b':
+          toggleBookmark()
           break
         default:
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toggle, skip, pickerOpen, openPicker])
+  }, [toggle, skip, seekToSeconds, player.elapsed, voicesOpen, openVoices, toggleBookmark])
 
-  const currentChunk = book.chunks[Math.min(player.index, book.chunks.length - 1)]
+  const voiceLabel = voices.find((voice) => voice.id === settings.voiceId)?.name ?? 'System voice'
 
   return (
     <div className="reader">
-      <header className="reader__header">
-        <button type="button" className="button button--ghost" onClick={onBack}>
-          ‹ Library
+      <header className="topbar">
+        <button type="button" className="iconbutton" onClick={onBack} aria-label="Back to library">
+          ‹
         </button>
-        <div className="reader__title">
-          <h1>{book.title}</h1>
-          {book.author ? <p className="muted">{book.author}</p> : null}
+        <h1 className="topbar__title">{book.title}</h1>
+        <div className="topbar__end">
+          <button
+            type="button"
+            className="iconbutton"
+            onClick={() => setDetailsOpen((open) => !open)}
+            aria-expanded={detailsOpen}
+            aria-label="Extraction details"
+          >
+            ⋯
+          </button>
+          {detailsOpen ? <ExtractionDetails book={book} onClose={() => setDetailsOpen(false)} /> : null}
         </div>
       </header>
 
       <div className="reader__body">
-        <aside className="reader__sidebar">
-          <ChapterList
-            chapters={book.chapters}
-            currentIndex={player.index}
-            onSeek={player.seekToChunk}
+        <aside className="sidebar">
+          <ChapterList chapters={book.chapters} currentIndex={player.index} onSeek={player.seekToChunk} />
+          <Bookmarks
+            bookmarks={bookmarks}
+            onOpen={(bookmark) => startAt(bookmark.chunkIndex, bookmark.tokenIndex)}
+            onDelete={removeBookmark}
           />
-          <ExtractionNotes book={book} />
         </aside>
 
         <main className="reader__main">
@@ -162,7 +219,7 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
             index={player.index}
             tokenIndex={player.tokenIndex}
             wordHighlighting={provider?.supportsBoundaries ?? false}
-            onStartAt={player.startAt}
+            onStartAt={startAt}
           />
         </main>
       </div>
@@ -171,20 +228,17 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
         <PlayerBar
           player={player}
           onRateChange={(rate) => onSettingsChange({ rate })}
+          title={book.title}
           page={currentChunk?.page ?? 1}
           pageCount={book.pageCount}
-          providers={providers}
-          providerId={provider?.id ?? ''}
-          onProviderChange={(id) => onSettingsChange({ providerId: id, voiceId: null })}
-          voices={voices}
-          voiceId={settings.voiceId}
-          favourites={settings.favouriteVoiceIds}
-          onVoiceChange={(id) => onSettingsChange({ voiceId: id })}
-          onOpenVoices={openPicker}
+          voiceLabel={voiceLabel}
+          onOpenVoices={openVoices}
+          onBookmark={toggleBookmark}
+          bookmarked={Boolean(bookmarkHere)}
         />
       </footer>
 
-      {pickerOpen ? (
+      {voicesOpen ? (
         <VoicePicker
           provider={provider}
           voices={voices}
@@ -194,9 +248,28 @@ export function Reader({ book, initialIndex, settings, onSettingsChange, onProgr
           rate={settings.rate}
           onVoiceChange={(id) => onSettingsChange({ voiceId: id })}
           onFavouritesChange={(favouriteVoiceIds) => onSettingsChange({ favouriteVoiceIds })}
-          onClose={closePicker}
+          onClose={closeVoices}
         />
       ) : null}
+    </div>
+  )
+}
+
+function ExtractionDetails({ book, onClose }: { book: BookRecord; onClose: () => void }) {
+  return (
+    <div className="popover" role="dialog" aria-label="Extraction details">
+      <h3>Extraction</h3>
+      <ul className="muted">
+        <li>
+          {book.chunks.length} chunks across {book.pageCount} pages
+        </li>
+        <li>{book.stats.droppedMarginLines} header/footer lines removed</li>
+        <li>{book.stats.droppedFootnoteLines} footnote lines skipped</li>
+        <li>{book.stats.twoColumnPages} multi-column pages re-ordered</li>
+      </ul>
+      <button type="button" className="button button--ghost" onClick={onClose}>
+        Close
+      </button>
     </div>
   )
 }
@@ -208,18 +281,4 @@ function previewSample(text: string | undefined): string {
     return 'It was a bright cold day in April, and the clocks were striking thirteen.'
   }
   return trimmed.length > 220 ? `${trimmed.slice(0, 220).replace(/\s\S*$/, '')}…` : trimmed
-}
-
-function ExtractionNotes({ book }: { book: BookRecord }) {
-  return (
-    <div className="notes">
-      <h3>Extraction</h3>
-      <ul className="muted">
-        <li>{book.chunks.length} chunks across {book.pageCount} pages</li>
-        <li>{book.stats.droppedMarginLines} header/footer lines removed</li>
-        <li>{book.stats.droppedFootnoteLines} footnote lines skipped</li>
-        <li>{book.stats.twoColumnPages} multi-column pages re-ordered</li>
-      </ul>
-    </div>
-  )
 }

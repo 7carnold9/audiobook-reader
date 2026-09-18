@@ -124,26 +124,28 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app__header">
-        <h1>Audiobook Reader</h1>
-        <p className="muted">Turn any text-based PDF into something you can listen to.</p>
-      </header>
-
+    <div className="app app--library">
       {providers.length ? null : (
         <p className="error">
           This browser has no speech engine available. Chrome, Edge and Safari all ship one.
         </p>
       )}
 
-      <UploadDropzone onFile={(file) => void handleFile(file)} busy={busy} error={error} />
-
       <Library
         books={books}
         progress={progress}
         onOpen={setOpenId}
         onDelete={(id) => void handleDelete(id)}
-      />
+      >
+        {/* The shelf owns the page heading, so adding a book lives inside it:
+            the empty state when there is nothing yet, a quiet strip once there is. */}
+        <UploadDropzone
+          onFile={(file) => void handleFile(file)}
+          busy={busy}
+          error={error}
+          variant={books.length ? 'add' : 'empty'}
+        />
+      </Library>
     </div>
   )
 }
